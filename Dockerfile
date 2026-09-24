@@ -5,6 +5,7 @@
 # scheme (their whole tag set rotated ~2026-09-23 midday). This tag is current
 # on Docker Hub as of 2026-09-23: worker 1.3.3-rc.171, CUDA 12.8.1, torch 2.9.1.
 FROM runpod/pytorch:1.3.3-rc.171-cu1281-torch291-ubuntu2404
+ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
@@ -17,6 +18,11 @@ RUN git clone --depth 1 https://github.com/Wan-Video/Wan2.2.git /opt/Wan2.2
 # falls back to torch SDPA - numerically identical for the 5B model.
 RUN grep -rl "from .*attention import flash_attention" /opt/Wan2.2/wan --include="*.py" \
     | xargs sed -i 's/import flash_attention$/import attention as flash_attention/'
+
+# --convert_model_dtype only converts the DiT; the VAE defaults to fp32 and its
+# full-video decode OOMs a 24GB card (bench 4: F.pad wanted 2.54 GiB, 1.07 free).
+# bf16 VAE decode is a supported path (see the bfloat16 note in vae2_2.py Upsample).
+RUN sed -i '/self\.vae = Wan2_2_VAE(/,/device=self\.device)/ { s/vae_pth=os\.path\.join(checkpoint_dir, config\.vae_checkpoint),/vae_pth=os.path.join(checkpoint_dir, config.vae_checkpoint), dtype=torch.bfloat16,/; s/device=self\.device)/device=self.device)\n        self.vae.model.to(torch.bfloat16)/; }' /opt/Wan2.2/wan/textimage2video.py
 
 WORKDIR /opt/Wan2.2
 
