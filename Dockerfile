@@ -13,6 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
 # Official inference code (generate.py --task ti2v-5B). This is the only
 # inference path the model authors support for the TI2V-5B checkpoint.
 RUN git clone --depth 1 https://github.com/Wan-Video/Wan2.2.git /opt/Wan2.2
+
+RUN python3 -c "p='/opt/Wan2.2/wan/textimage2video.py'; s=open(p).read(); old='''            x0 = latents\n            if offload_model:\n                self.model.cpu()\n                torch.cuda.synchronize()\n                torch.cuda.empty_cache()\n            if self.rank == 0:\n                videos = self.vae.decode(x0)'''; new='''            x0 = latents\n            # Unconditional, deterministic DiT teardown before VAE decode\n            # (24GB serverless): bench 4/5 showed ~14.5 GiB still allocated\n            # during decode, i.e. the ~9.3 GiB bf16 DiT was still resident\n            # even though offload_model=True was passed. The DiT is never\n            # used after the sampling loop, so drop it outright. Each job\n            # runs in a fresh generate.py process, so there is no reuse cost.\n            del self.model\n            gc.collect()\n            torch.cuda.synchronize()\n            torch.cuda.empty_cache()\n            print('[wan] pre-decode GPU allocated: %.2f GiB' % (torch.cuda.memory_allocated() / 2**30), flush=True)\n            if self.rank == 0:\n                videos = self.vae.decode(x0)'''; assert s.count(old)==1, 'DiT teardown pattern not found'; open(p,'w').write(s.replace(old,new)); print('DiT teardown patch applied')"
+RUN grep -q "first_chunk=True" /opt/Wan2.2/wan/modules/vae2_2.py || (echo "FATAL: vae2_2.py missing chunked decode" && exit 1)
+
 # Wan2.2's DiT hard-asserts flash-attn, which has no wheel for torch 2.9/cu128
 # (source build fails). Rewire to the repo's own attention() wrapper, which
 # falls back to torch SDPA - numerically identical for the 5B model.
