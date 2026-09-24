@@ -35,10 +35,7 @@ RUN sed -E '/^[[:space:]]*(torch|torchvision|torchaudio|flash_attn)([^A-Za-z0-9_
 # the full import closure of `import wan` (56 files): these are the only
 # third-party modules missing beyond upstream requirements. cosyvoice and
 # torchaudio are function-level imports inside tts(), never executed here.
-# librosa: hard module-level import in wan/modules/s2v/audio_encoder.py — missed in the
-# first closure scan by an off-by-one in relative-import resolution that skipped the
-# s2v/animate subtrees; caught by the corrected walk (44 modules, 0 unresolvable).
-RUN pip install --no-cache-dir -r /tmp/wan-reqs.txt einops regex decord peft safetensors librosa
+RUN pip install --no-cache-dir -r /tmp/wan-reqs.txt einops regex decord peft safetensors
 
 # Worker-side deps (the handler itself only needs these; cv2 comes from the
 # Wan2.2 requirements above).
