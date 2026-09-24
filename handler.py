@@ -192,6 +192,7 @@ def build_cmd(*, image_path, save_path, prompt, size, frames, steps,
         "--base_seed", str(seed),
         "--offload_model", "True",   # spill to CPU between forwards: 24GB-safe
         "--t5_cpu",                  # bare flag: keep the text encoder off GPU
+        "--convert_model_dtype",     # bare flag: fp32 ckpt -> bf16 (halves VRAM)
         "--save_file", save_path,
     ]
 
