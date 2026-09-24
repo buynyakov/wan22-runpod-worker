@@ -1,0 +1,7 @@
+# Worker-side dependencies only. The ML stack (torch, transformers,
+# opencv, imageio, ...) comes from the official Wan2.2 repo's own
+# requirements.txt, installed in the Dockerfile.
+runpod
+requests
+Pillow
+huggingface_hub
