@@ -35,8 +35,7 @@ RUN sed -E '/^[[:space:]]*(torch|torchvision|torchaudio|flash_attn)([^A-Za-z0-9_
 # the full import closure of `import wan` (56 files): these are the only
 # third-party modules missing beyond upstream requirements. cosyvoice and
 # torchaudio are function-level imports inside tts(), never executed here.
-RUN pip install --no-cache-dir -r /tmp/wan-reqs.txt einops regex decord peft safetensors
-
+	RUN pip install --no-cache-dir -r /tmp/wan-reqs.txt einops regex decord peft safetensors librosa
 # Worker-side deps (the handler itself only needs these; cv2 comes from the
 # Wan2.2 requirements above).
 COPY requirements.txt /worker-requirements.txt
