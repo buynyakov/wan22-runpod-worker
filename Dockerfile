@@ -12,6 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
 # Official inference code (generate.py --task ti2v-5B). This is the only
 # inference path the model authors support for the TI2V-5B checkpoint.
 RUN git clone --depth 1 https://github.com/Wan-Video/Wan2.2.git /opt/Wan2.2
+# Wan2.2's DiT hard-asserts flash-attn, which has no wheel for torch 2.9/cu128
+# (source build fails). Rewire to the repo's own attention() wrapper, which
+# falls back to torch SDPA - numerically identical for the 5B model.
+RUN grep -rl "from .*attention import flash_attention" /opt/Wan2.2/wan --include="*.py" \
+    | xargs sed -i 's/import flash_attention$/import attention as flash_attention/'
+
 WORKDIR /opt/Wan2.2
 
 # Install the repo's requirements EXCEPT the torch family (the base image
