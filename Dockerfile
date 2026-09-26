@@ -28,6 +28,9 @@ RUN grep -rl "from .*attention import flash_attention" /opt/Wan2.2/wan --include
 # bf16 VAE decode is a supported path (see the bfloat16 note in vae2_2.py Upsample).
 RUN sed -i '/self\.vae = Wan2_2_VAE(/,/device=self\.device)/ { s/vae_pth=os\.path\.join(checkpoint_dir, config\.vae_checkpoint),/vae_pth=os.path.join(checkpoint_dir, config.vae_checkpoint), dtype=torch.bfloat16,/; s/device=self\.device)/device=self.device)\n        self.vae.model.to(torch.bfloat16)/; }' /opt/Wan2.2/wan/textimage2video.py
 
+RUN python3 -c "p='/opt/Wan2.2/wan/textimage2video.py'; s=open(p).read(); old='''            if offload_model:\n                self.model.cpu()\n                torch.cuda.synchronize()\n                torch.cuda.empty_cache()\n\n            if self.rank == 0:\n                videos = self.vae.decode(x0)'''; new='''            # Unconditional, deterministic DiT teardown before VAE decode (i2v path):\n            # free the ~14.5 GiB DiT before the ~22.6 GiB VAE decode allocation.\n            # Each job runs in a fresh generate.py process, so there is no reuse cost.\n            del self.model\n            gc.collect()\n            torch.cuda.synchronize()\n            torch.cuda.empty_cache()\n            print('[wan] pre-decode GPU allocated: %.2f GiB' % (torch.cuda.memory_allocated() / 2**30), flush=True)\n            if self.rank == 0:\n                videos = self.vae.decode(x0)'''; assert s.count(old)==1, 'i2v DiT teardown pattern not found'; open(p,'w').write(s.replace(old,new)); print('i2v DiT teardown patch applied')"
+
+
 WORKDIR /opt/Wan2.2
 
 # Install the repo's requirements EXCEPT the torch family (the base image
